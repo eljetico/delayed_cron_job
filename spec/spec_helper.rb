@@ -21,9 +21,11 @@ require 'delayed_cron_job'
 Delayed::Worker.logger = Logger.new('/tmp/dj.log')
 ENV['RAILS_ENV'] = 'test'
 
+GlobalID.app = "djc"
+
 ActiveJob::Base.queue_adapter = :delayed_job
 
-ActiveRecord::Base.establish_connection :adapter => 'sqlite3', :database => ':memory:'
+ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: ':memory:')
 ActiveRecord::Base.logger = Delayed::Worker.logger
 ActiveRecord::Migration.verbose = false
 
@@ -39,6 +41,8 @@ ActiveRecord::Schema.define do
     t.string   :locked_by
     t.string   :queue
     t.string   :cron
+    t.integer  :delayed_reference_id
+    t.string   :delayed_reference_type
     t.timestamps null: false
   end
 

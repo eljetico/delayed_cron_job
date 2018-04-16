@@ -1,11 +1,31 @@
 require 'spec_helper'
+require 'rspec/active_model/mocks'
 
 describe ActiveJob do
+
+  # Copied fresh from ActiveJob test/models
+  class Person
+    class RecordNotFound < StandardError; end
+
+    include GlobalID::Identification
+
+    attr_reader :app, :id
+
+    def self.find(id)
+      raise RecordNotFound.new("Cannot find person with ID=404") if id.to_i == 404
+      new(id)
+    end
+
+    def initialize(id)
+      @id = id
+    end
+  end
 
   class CronJob < ActiveJob::Base
     class_attribute :cron
 
-    def perform; end
+    def perform(obj)
+    end
 
     def cron
       @cron ||= self.class.cron
@@ -14,8 +34,9 @@ describe ActiveJob do
 
   before { Delayed::Job.delete_all }
 
+  let(:model)   { Person.find(14) }
   let(:cron)    { '5 1 * * *' }
-  let(:job)     { CronJob.set(cron: cron).perform_later }
+  let(:job)     { CronJob.set(cron: cron).perform_later(model) }
   let(:delayed_job) { Delayed::Job.first }
   let(:worker)  { Delayed::Worker.new }
   let(:now)     { Delayed::Job.db_time_now }
@@ -29,6 +50,8 @@ describe ActiveJob do
       expect { job }.to change { Delayed::Job.count }.by(1)
       expect(delayed_job.run_at).to eq(next_run)
       expect(delayed_job.cron).to eq(cron)
+      expect(delayed_job.delayed_reference_id).to eq(14)
+      expect(delayed_job.delayed_reference_type).to eq('Person')
     end
 
     it 'schedules a new job after success' do
@@ -50,13 +73,15 @@ describe ActiveJob do
   end
 
   context 'without cron' do
-    let(:job) { CronJob.perform_later }
+    let(:job) { CronJob.perform_later(model) }
 
     it 'sets run_at but not cron on enqueue' do
       CronJob.cron = nil
       expect { job }.to change { Delayed::Job.count }.by(1)
       expect(delayed_job.run_at).to be <= now
       expect(delayed_job.cron).to be_nil
+      expect(delayed_job.delayed_reference_id).to eq(14)
+      expect(delayed_job.delayed_reference_type).to eq('Person')
     end
 
     it 'uses default cron on enqueue' do
@@ -64,6 +89,8 @@ describe ActiveJob do
       expect { job }.to change { Delayed::Job.count }.by(1)
       expect(delayed_job.run_at).to eq(next_run)
       expect(delayed_job.cron).to eq(cron)
+      expect(delayed_job.delayed_reference_id).to eq(14)
+      expect(delayed_job.delayed_reference_type).to eq('Person')
     end
   end
 end

@@ -3,7 +3,8 @@ require 'spec_helper'
 describe DelayedCronJob do
 
   class TestJob
-    def perform; end
+    def perform
+    end
   end
 
   before { Delayed::Job.delete_all }

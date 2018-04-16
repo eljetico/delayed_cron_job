@@ -25,7 +25,25 @@ module DelayedCronJob
         wrapper = ::ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper.new(job.serialize)
         delayed_job = Delayed::Job.enqueue(wrapper, options)
         job.provider_job_id = delayed_job.id if job.respond_to?(:provider_job_id=)
+        preserve_job_item_reference_type_and_id(delayed_job, job)
         delayed_job
+      end
+
+      # Introduces an additional save but is the naive implementation
+      # allowing us to save ActiveRecord instance type and id
+      def preserve_job_item_reference_type_and_id(delayed_job, job)
+        if !delayed_job.respond_to?(:delayed_reference_id)
+          return false
+        end
+
+        job_item = job.arguments.first
+
+        if job_item.respond_to?(:id)
+          delayed_job.update_attributes(
+            delayed_reference_id: job_item.id,
+            delayed_reference_type: job_item.class.name
+          )
+        end
       end
 
     end
